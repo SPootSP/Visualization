@@ -4,22 +4,6 @@ from PyQt5.QtCore import *
 import pyqtgraph as pg
 import pandas as pd
 
-class PieChart(QGraphicsView):
-
-    pChart = []
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.openFileBtn = QPushButton('Open file', self)
-        self.pChart = QGraphicsScene(self)
-        self.setScene(self.pChart)
-        print(self.rect())
-        self.half = QGraphicsEllipseItem(10,10,100,100)
-        self.shalf = QGraphicsEllipseItem(200,200,400,400)
-        self.pChart.addItem(self.half)
-        self.pChart.addItem(self.shalf)
-        self.graphWidget = pg.PlotWidget(self)
-
 class FileReader(QWidget):
 
     database = None
@@ -95,7 +79,7 @@ class Window(QMainWindow):
                         "{"
                         "background : lightblue"
                         "}")
-        mainWidget = PieChart(widget)
+        mainWidget = QWidget(widget)
         mainWidget.setGeometry(600, 0, 1080, 1500)
         mainWidget.setStyleSheet("background : red")
 
