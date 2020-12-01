@@ -18,25 +18,31 @@ class FileReader(QWidget):
         self.UiComponents()
 
     def UiComponents(self):
-        self.openFileBtn = QPushButton('Open file', self)
+        self.openFileBtn = QPushButton('Visualization 1', self)
         self.openFileBtn.setGeometry(10,10,133,30)
+
+        self.openFileBtn = QPushButton('Visualization 2', self)
+        self.openFileBtn.setGeometry(200,10,133,30)
+
+        self.openFileBtn = QPushButton('Open file', self)
+        self.openFileBtn.setGeometry(10,40,133,30)
         self.openFileBtn.clicked.connect(self.openFile)
 
         self.loadingLabel = QLabel('Nothing loaded yet', self)
-        self.loadingLabel.setGeometry(134,10,133,30)
+        self.loadingLabel.setGeometry(134,40,133,30)
         self.loadingLabel.setStyleSheet("QWidget"
                         "{"
                         "background : lightblue"
                         "}")
 
         self.setSelectedBtn = QPushButton('Set selected', self)
-        self.setSelectedBtn.setGeometry(267,10,133,30)
+        self.setSelectedBtn.setGeometry(267,40,133,30)
         self.setSelectedBtn.clicked.connect(self.on_click)
 
         self.fileLocation = QTextEdit(r'C:\Users\20191704\Documents\Visualization\week 1\dataset.csv', self)
         self.fileLocation.setLineWrapMode(QTextEdit.WidgetWidth)
         self.fileLocation.setWordWrapMode(QTextOption.WrapAnywhere)
-        self.fileLocation.setGeometry(10,40,400,30)
+        self.fileLocation.setGeometry(10,70,400,30)
 
         self.table = QTableWidget(self)
         self.table.setGeometry(10, 100, 400,400)
@@ -81,7 +87,6 @@ class Window(QMainWindow):
                         "}")
         mainWidget = QWidget(widget)
         mainWidget.setGeometry(600, 0, 1080, 1500)
-        mainWidget.setStyleSheet("background : red")
 
         fileWidget = FileReader(leftWidget)
         fileWidget.setGeometry(0,0, 420,540)
