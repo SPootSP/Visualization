@@ -322,7 +322,7 @@ class Table(QWidget):
         self.listwidget.setStyleSheet("QListWidget {background : white}")
         self.listwidget.setSelectionMode(QAbstractItemView.MultiSelection)
         for uni in self.database[self.prevSelected].unique():
-            self.listwidget.addItem(uni)
+            self.listwidget.addItem(str(uni))
 
         # update blue screen
         self.parent.addOptions([self.resetBtn, self.comboBox, self.listwidget])
