@@ -2,6 +2,8 @@
 
 This is the code for the Visualization course
 
+only the main.py is needed the others were for ourselves
+
 required libraries (they have to be installed to execute the program):
 -threading
 -PyQt5.QtWidgets
