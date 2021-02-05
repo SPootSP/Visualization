@@ -15,6 +15,7 @@ import numpy as np
 
 class Correlogram(QWidget):
 
+    # the annotation window when a point is selected
     annot = None
 
     def __init__(self, parent, database):
@@ -22,35 +23,48 @@ class Correlogram(QWidget):
         self.parent = parent
         self.database = database
 
-        sns.scatterplot( )
+        # the Visualization itself with scatterplot as the lower section and
+        # kernal density plots as the uper section
         self.figure = sns.PairGrid(self.database, dropna=True)
         self.figure.map_upper(sns.kdeplot)
         self.figure.map_diag(sns.histplot)
         self.figure.map_lower(sns.scatterplot)
 
+        # put the vis on a canvas in order for it to be shown
         self.vis = FigureCanvas(self.figure.fig)
+        # on click select a point
         self.vis.mpl_connect('button_press_event', self.onclick)
 
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.vis)
         self.setLayout(self.layout)
 
+    # on click select a point
     def onclick(self, event):
         for y in range(len(self.figure.axes)):
             for x in range(len(self.figure.axes[y])):
+                # first select the correct plot
                 if self.figure.axes[y][x] == event.inaxes:
+                    # get all data on that axes
                     data = self.database[[self.figure.axes[len(self.figure.axes)-1][x].get_xlabel(),
                                           self.figure.axes[y][0].get_ylabel()]].values
+                    # get the point closesed to the click point
                     idx = np.nanargmin(((data - (event.xdata, event.ydata))**2).sum(axis = -1))
                     point = data[idx]
                     eDatabase = self.parent.getDatabase()
                     fDatabase = eDatabase[ eDatabase[self.figure.axes[len(self.figure.axes)-1][x].get_xlabel()] == point[0] ]
                     fDatabase = fDatabase[ fDatabase[self.figure.axes[y][0].get_ylabel()] == point[1] ]
                     if len(fDatabase) > 0:
+                        # get the data of the point
                         dataPoint = fDatabase.iloc[0,:].dropna()
+                        # give the parent the highlighted point in order for the connection interaction to work
+                        self.parent.setHighlight(dataPoint)
                         dstring = ""
+                        # put all the data into a string
                         for col in dataPoint.index:
                             dstring += col + ": " + str(dataPoint[[col]]) + "\n"
+
+                        # make the annotation
                         if self.annot is not None:
                             self.annot.set_visible(False)
                         self.annot = self.figure.axes[y][x].annotate(dstring,xy=point, ha = 'right',
@@ -59,11 +73,10 @@ class Correlogram(QWidget):
                             arrowprops = dict(arrowstyle = '->', connectionstyle = 'arc3,rad=0')
                             )
                         self.annot.set_visible(True)
+                        # redraw the vis
                         self.vis.draw()
 
 class Barchart(QWidget):
-    rowList = []
-    colList = []
     highlight = None
     xAxesValue = None
     yAxesValue = None
@@ -73,28 +86,33 @@ class Barchart(QWidget):
     numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
     colorSchemes = ["deep", "muted", "bright", "pastel", "dark", "colorblind"]
 
-    def __init__(self, parent, database):
+    def __init__(self, parent, database, highlight):
         super(Barchart, self).__init__()
         self.parent = parent
         self.database = database
 
+        # get all possible attributes for the x axis
+        rowList = []
         for col in database.columns:
-            self.rowList.append(col)
+            rowList.append(col)
 
+        # get all possible attributes for the y axis
         newdf = database.select_dtypes(include=self.numerics)
+        colList = []
         for col in newdf.columns:
-            self.colList.append(col)
+            colList.append(col)
 
-        self.minY = self.database[self.colList[0]].min()
-        self.maxY = self.database[self.colList[0]].max()
+        # get min and max value of the y axis
+        self.minY = self.database[colList[0]].min()
+        self.maxY = self.database[colList[0]].max()
 
         self.minYLabel = QLabel("Set the minimum Y value")
 
         self.minYslider = QSlider(Qt.Horizontal)
         self.minYslider.valueChanged[int].connect(self.setMinYValue)
         self.minYslider.sliderReleased.connect(self.changeYRange)
-        self.minYslider.setMinimum(self.minY)
-        self.minYslider.setMaximum(self.maxY)
+        self.minYslider.setMinimum(int(self.minY))
+        self.minYslider.setMaximum(int(self.maxY))
         self.minYslider.setValue(self.minY)
 
         self.maxYLabel = QLabel("Set the maximum Y value")
@@ -108,45 +126,49 @@ class Barchart(QWidget):
 
         self.orderLabel = QLabel("Change the order of the bars.")
 
-        self.comboBoxO = QComboBox()
-        self.comboBoxO.addItems(["default","ascending","descending"])
-        self.comboBoxO.currentIndexChanged.connect(self.setOValue)
+        self.comboBoxArrangement = QComboBox()
+        self.comboBoxArrangement.addItems(["default","ascending","descending"])
+        self.comboBoxArrangement.currentIndexChanged.connect(self.setOValue)
 
         self.colorEncodingLabel = QLabel("Change the color encoding.")
 
-        self.comboBoxC = QComboBox()
-        self.comboBoxC.addItems(self.colorSchemes)
-        self.comboBoxC.currentIndexChanged.connect(self.setCValue)
+        self.comboBoxColor = QComboBox()
+        self.comboBoxColor.addItems(self.colorSchemes)
+        self.comboBoxColor.currentIndexChanged.connect(self.setCValue)
 
         self.boxLabelX = QLabel("Change the x-Axis.")
 
         self.comboBoxX = QComboBox()
-        self.comboBoxX.addItems(self.rowList)
+        self.comboBoxX.addItems(rowList)
         self.comboBoxX.currentIndexChanged.connect(self.setXValue)
 
         self.boxLabelY = QLabel("Change the y-Axis.")
 
         self.comboBoxY = QComboBox()
-        self.comboBoxY.addItems(self.colList)
+        self.comboBoxY.addItems(colList)
         self.comboBoxY.currentIndexChanged.connect(self.setYValue)
 
+        # setup all vis that should go on the blue screen
         self.parent.addOptions([self.minYLabel, self.minYslider,
                                 self.maxYLabel, self.maxYslider,
-                                self.orderLabel, self.comboBoxO,
-                                self.colorEncodingLabel, self.comboBoxC,
+                                self.orderLabel, self.comboBoxArrangement,
+                                self.colorEncodingLabel, self.comboBoxColor,
                                 self.boxLabelX, self.comboBoxX,
                                 self.boxLabelY, self.comboBoxY])
 
         self.xAxesValue = self.comboBoxX.currentText()
         self.yAxesValue = self.comboBoxY.currentText()
 
+        # if something is highlighted take it over
+        if not highlight is None:
+            self.highlight = highlight[self.xAxesValue]
+
         self.fig = Figure(figsize=(5, 4), dpi=100)
         self.ax = self.fig.add_subplot(1,1,1)
         # the rotation of the labels came from https://stackabuse.com/rotate-axis-labels-in-matplotlib/
         for tick in self.ax.get_xticklabels():
             tick.set_rotation(90)
-        for tick in self.ax.get_yticklabels():
-            tick.set_rotation(90)
+        # make the vis
         try:
             sns.barplot(data=self.database, x=self.xAxesValue, y=self.yAxesValue, palette=self.cValue, ax=self.ax)
         except ValueError:
@@ -157,6 +179,7 @@ class Barchart(QWidget):
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.vis)
         self.setLayout(self.layout)
+        self.update()
 
     def setMinYValue(self, value):
         self.minY = value
@@ -171,13 +194,15 @@ class Barchart(QWidget):
             self.maxYslider.setValue(self.maxY)
 
     def changeYRange(self):
+        # updates the vis based on the new y range
         self.database = self.parent.getFilteredDatabase()
         self.database = self.database[self.database[self.yAxesValue] >= self.minY]
         self.database = self.database[self.database[self.yAxesValue] <= self.maxY]
         self.update()
 
     def setOValue(self, state=None):
-        oValue = self.comboBoxO.currentText()
+        # change the arrangement of the data
+        oValue = self.comboBoxArrangement.currentText()
         if oValue == "default":
             self.database = self.parent.getFilteredDatabase()
         elif oValue == "ascending":
@@ -187,7 +212,8 @@ class Barchart(QWidget):
         self.update()
 
     def setCValue(self, state=None):
-        self.cValue = self.comboBoxC.currentText()
+        # set the color palette
+        self.cValue = self.comboBoxColor.currentText()
         self.update()
 
     def setXValue(self, state=None):
@@ -204,10 +230,8 @@ class Barchart(QWidget):
         color_map = ['grey' if value != self.highlight else 'red' for index, value in self.database[self.xAxesValue].items()]
         try:
             if self.highlight is None:
-                print("normal")
                 sns.barplot(data=self.database, x=self.xAxesValue, y=self.yAxesValue, palette=self.cValue, ax=self.ax)
             else:
-                print("inbetween")
                 sns.barplot(data=self.database, x=self.xAxesValue, y=self.yAxesValue, palette=color_map,ax=self.ax)
         except ValueError:
             print("Contains no valid data")
@@ -239,8 +263,6 @@ class Heatmap(QWidget):
         # the rotation of the labels came from https://stackabuse.com/rotate-axis-labels-in-matplotlib/
         for tick in self.ax.get_xticklabels():
             tick.set_rotation(90)
-        for tick in self.ax.get_yticklabels():
-            tick.set_rotation(90)
         sns.heatmap(data=self.database, ax=self.ax, annot=True)
         for lab, annot in zip(self.ax.get_yticklabels(), self.ax.texts):
             text =  lab.get_text()
@@ -261,11 +283,13 @@ class Heatmap(QWidget):
 class Table(QWidget):
 
     timer = None
+    prevSelected = None
 
     def __init__(self, parent, database):
         super(Table, self).__init__()
         self.parent = parent
         self.database = database
+        # setup vis
         self.vis = QTableWidget(self)
         self.vis.setRowCount(self.database.shape[0])
         self.vis.setColumnCount(self.database.shape[1])
@@ -275,6 +299,34 @@ class Table(QWidget):
                 self.vis.setItem(x,y, QTableWidgetItem(str(self.database.loc[x,column_name])))
         self.vis.setHorizontalHeaderLabels(self.database.columns)
         self.vis.itemSelectionChanged.connect(lambda: self.on_table_click())
+
+        # the data will be filtered everytime you select something so this resets
+        # everything
+        self.resetBtn = QPushButton("Reset the selected data")
+        self.resetBtn.clicked.connect(self.reset)
+
+        # the thing to select which attribute to filter
+        self.comboBox = QComboBox()
+        self.comboBox.setStyleSheet("QListWidget {background : white}")
+        self.comboBox.currentIndexChanged.connect(self.setOValue)
+
+        # the widget that contains all possible values on which you can filter out
+        # these values are the unique values of the selected attribute
+        self.listwidget = QListWidget()
+        for attr in self.database.columns:
+            if self.prevSelected is None:
+                self.prevSelected = attr
+            self.comboBox.addItem(attr)
+
+        # code from https://stackoverflow.com/questions/54119933/pyqt5-list-widget-programmatically-select-all-items helped with the multiple selection
+        self.listwidget.setStyleSheet("QListWidget {background : white}")
+        self.listwidget.setSelectionMode(QAbstractItemView.MultiSelection)
+        for uni in self.database[self.prevSelected].unique():
+            self.listwidget.addItem(uni)
+
+        # update blue screen
+        self.parent.addOptions([self.resetBtn, self.comboBox, self.listwidget])
+
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.vis)
         self.setLayout(self.layout)
@@ -293,14 +345,38 @@ class Table(QWidget):
                 selectedRows.append(index.row())
             if not index.column() in selectedColumns:
                 selectedColumns.append(index.column())
+        self.reset()
         self.parent.setFilteredData(self.database.iloc[selectedRows, selectedColumns])
+
+    def setOValue(self, state=None):
+        #filters based on selection
+        selectedList = []
+        for item in self.listwidget.selectedItems():
+            selectedList.append(item.text())
+        database = self.database[self.database[self.prevSelected].isin(selectedList)].dropna()
+        database = database[database[self.prevSelected].notna()]
+        #self.parent.setFilteredData(self.database)
+        self.listwidget.clear()
+        database = self.parent.getDatabase()
+        for uni in database[self.comboBox.currentText()].unique():
+            self.listwidget.addItem(str(uni))
+        self.prevSelected = self.comboBox.currentText()
+
+    def reset(self, state=None):
+        self.database = self.parent.getDatabase()
 
 class Window(QMainWindow):
 
+    # current displayed vis
     vis = None
+
+    # entire loaded database
     database = None
+
+    # database filtered by the selection of table vis
     filteredData = None
-    selectedData = None
+
+    # highlighted point
     highlightedIdxs = None
 
     def __init__(self):
@@ -373,6 +449,8 @@ class Window(QMainWindow):
         self.setCentralWidget(main)
 
     def setWidget(self, widget):
+        # here you can change between vis
+        # for every vis first remove the old vis then add the new
         if self.database is not None:
             if widget == "Correlogram":
                 self.removeOptions()
@@ -386,7 +464,7 @@ class Window(QMainWindow):
                 if self.vis:
                     self.rightWidget.layout().removeWidget(self.vis)
                     self.vis.deleteLater()
-                self.vis = Barchart(self, self.filteredData.copy())
+                self.vis = Barchart(self, self.filteredData.copy(), self.highlightedIdxs)
                 self.rightWidget.layout().addWidget(self.vis)
             elif widget == "Heatmap":
                 self.removeOptions()
@@ -404,24 +482,28 @@ class Window(QMainWindow):
                 self.rightWidget.layout().addWidget(self.vis)
 
     def openFileNameDialog(self):
+        # opens and loads the .csv file
         options = QFileDialog.Options()
         options |= QFileDialog.DontUseNativeDialog
         fileName, _ = QFileDialog.getOpenFileName(self,"QFileDialog.getOpenFileName()", "","CSV Files (*.csv)", options=options)
         if fileName:
-            self.database = pd.read_csv(fileName, sep=";")
+            self.database = pd.read_csv(fileName, sep=",")
             for col in self.database.columns:
                 self.database[col] = self.database[col].replace(float('nan'), np.nan)
             self.filteredData = self.database.copy()
             self.setWidget("Table")
 
     def setFilteredData(self, database):
+        # used by vises to filter the database
         self.filteredData = database
 
     def addOptions(self, options):
+        # used by vises to add their filter settings on the bluescreen
         for option in options:
             self.leftWidget.layout().addWidget(option)
 
     def removeOptions(self, options=None):
+        # removes all bluescreen filter settings or only the selected ones
         if options is None:
             for i in reversed(range(self.leftWidget.layout().count())):
                 widgetToRemove = self.leftWidget.layout().itemAt( i ).widget()
@@ -436,15 +518,19 @@ class Window(QMainWindow):
                 self.leftWidget.layout().removeWidget(option)
 
     def getDatabase(self):
+        # sometimes the vis need all data back not the filtered
         return self.database.copy()
 
     def getFilteredDatabase(self):
+        # when a vis filtered their own database to much
         return self.filteredData.copy()
 
     def setHighlight(self, highlight):
+        # used to propegate highlight
         self.highlightedIdxs = highlight
 
     def getHighlight(self):
+        # used to propegate highlight
         return self.highlightedIdxs
 
 app = QApplication([])
